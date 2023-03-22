@@ -14,7 +14,7 @@
 
 
 
-
+DWORD WINAPI body(LPVOID lpParam);
 
 
 class EventManager
@@ -24,7 +24,7 @@ public:
     EventManager()
     {
         mutex = CreateMutex(NULL, FALSE, NULL);
-        threadConfirmSmthEvent = CreateEvent(NULL, FALSE, FALSE, "OutEvent");
+        threadConfirmSmthEvent = CreateEvent(NULL, FALSE, FALSE, "ConfirmThread");
     }
 
 
@@ -68,123 +68,19 @@ private:
 };
 
 
-
-DWORD WINAPI body(LPVOID lpParam)
-{
-    SimpleThread* Thread = static_cast<SimpleThread*>(lpParam);
-
-    WaitForSingleObject(Thread->GetUniqueEventHandle(), INFINITE);
-    
-    WaitForSingleObject(Thread->GetMutexHandle(), INFINITE);
-    std::cout << "start thread " << Thread->GetIndex() << std::endl;
-    ReleaseMutex(Thread->GetMutexHandle());
-
-    SetEvent(Thread->GetConfirmEventHandle());
-
-
-    WaitForSingleObject(Thread->GetUniqueEventHandle(), INFINITE);
-    
-    WaitForSingleObject(Thread->GetMutexHandle(), INFINITE);
-    std::cout << "stop thread " << Thread->GetIndex() << std::endl;
-    ReleaseMutex(Thread->GetMutexHandle());
-
-    SetEvent(Thread->GetConfirmEventHandle());
-
-    return 0;
-}
-
-
-class MainThread
-{
-public:
-
-    MainThread() { }
-
-
-    void StartEventCatcher()
-    {
-        WaitForSingleObject(hExtermalEvents[0], INFINITE);
-
-        WaitForSingleObject(hCatchersSyncMutex, INFINITE);
-        
-
-        int ind = optionalThreads.size() + 1;
-        HANDLE ev = CreateEvent(NULL, FALSE, FALSE, std::to_string(ind).c_str());
-        manager.AddUniqueEvent(ev);
-
-        optionalThreads.push(SimpleThread(manager, ind).CreateSimpleThread());
-
-        SetEvent(ev);
-        
-
-        WaitForSingleObject(manager.GetConfirmEventHandle(), INFINITE);
-        SetEvent(hConfirmExOpEvent);
-
-        ReleaseMutex(hCatchersSyncMutex);
-    }
-
-
-    void StopEventCatcher()
-    {
-        WaitForSingleObject(hExtermalEvents[1], INFINITE);
-        WaitForSingleObject(hCatchersSyncMutex, INFINITE);
-
-
-        SetEvent(manager.GetLastUniqueEvent());
-        WaitForSingleObject(manager.GetConfirmEventHandle(), INFINITE);
-
-        CloseLastOptionalThread();
-        manager.CloseLastUniqueEvent();
-
-
-        SetEvent(hConfirmExOpEvent);
-        ReleaseMutex(hCatchersSyncMutex);
-    }
-
-
-    void CloseEventCatcher()
-    {
-        WaitForSingleObject(hExtermalEvents[2], INFINITE);
-        WaitForSingleObject(hCatchersSyncMutex, INFINITE);
-
-
-        ExitProcess(1);
-    }
-
-
-    void CloseLastOptionalThread()
-    {
-        CloseHandle(optionalThreads.top());
-        optionalThreads.pop();
-    }
-
-
-private:
-    EventManager manager = EventManager();
-
-    const HANDLE hCatchersSyncMutex = CreateMutex(NULL, FALSE, NULL);
-
-    std::stack<HANDLE> optionalThreads;
-
-    HANDLE hExtermalEvents[3] = { CreateEvent(NULL, FALSE, FALSE, "Start"),
-                                  CreateEvent(NULL, FALSE, FALSE, "Stop"),
-                                  CreateEvent(NULL, FALSE, FALSE, "Close") };
-
-    HANDLE hConfirmExOpEvent = CreateEvent(NULL, FALSE, FALSE, "ConfirmExOp");
-};
-
-
 class SimpleThread
 {
 public:
 
-    SimpleThread(const EventManager& manager, const int& threadIndex)
-        : hMutex(manager.GetMutexHandle()), hConfirmEvent(manager.GetConfirmEventHandle()), hUniqueEvent(manager.GetLastUniqueEvent()), i(threadIndex) {}
-
-
-    HANDLE CreateSimpleThread()
-    {
+    SimpleThread(const EventManager& manager, const int threadIndex)
+        : hMutex(manager.GetMutexHandle()), hConfirmEvent(manager.GetConfirmEventHandle()), hUniqueEvent(manager.GetLastUniqueEvent()), i(threadIndex) 
+    { 
         thisThread = CreateThread(NULL, 0, body, (LPVOID*)this, 0, NULL);
+    }
+
+
+    HANDLE GetThreadHandle()
+    {
         return thisThread;
     }
 
@@ -205,11 +101,19 @@ public:
     {
         return hUniqueEvent;
     }
-    
+
 
     int GetIndex() const
     {
         return i;
+    }
+
+
+    void SyncConsoleWrite(std::string text)
+    {
+        WaitForSingleObject(GetMutexHandle(), INFINITE);
+        std::cout << text << std::endl;
+        ReleaseMutex(GetMutexHandle());
     }
 
 
@@ -218,11 +122,130 @@ private:
     HANDLE hConfirmEvent;
     HANDLE hUniqueEvent;
 
-    int i = 0;
+    const int i;
 
     HANDLE thisThread;
 
 };
+
+
+class MainThread
+{
+public:
+
+    MainThread() 
+    {
+        std::cout << "Main thread" << std::endl;
+    }
+
+    void start()
+    {
+        while (true)
+        {
+            DWORD dwWaitResult = WaitForMultipleObjects(3, hExtermalEvents, FALSE, INFINITE);
+
+            switch (dwWaitResult)
+            {
+            case WAIT_OBJECT_0:
+                StartEventHandler();
+                ResetEvent(hExtermalEvents[0]);
+                break;
+
+            case WAIT_OBJECT_0 + 1:
+                StopEventHandler();
+                ResetEvent(hExtermalEvents[1]);
+                break;
+
+            case WAIT_OBJECT_0 + 2:
+                ResetEvent(hExtermalEvents[2]);
+                End();
+                break;
+
+            default:
+                break;
+            }
+
+            SetEvent(hConfirmExOpEvent);
+        }
+    }
+
+
+    void StartEventHandler()
+    {
+        int ind = optionalThreads.size() + 1;
+        HANDLE ev = CreateEvent(NULL, FALSE, FALSE, std::to_string(ind).c_str());
+        manager.AddUniqueEvent(ev);
+
+        optionalThreads.push(SimpleThread(manager, ind));
+
+        SetEvent(ev);
+
+        WaitForSingleObject(manager.GetConfirmEventHandle(), INFINITE);
+    }
+
+
+    void StopEventHandler()
+    {
+        SetEvent(manager.GetLastUniqueEvent());
+        WaitForSingleObject(manager.GetConfirmEventHandle(), INFINITE);
+
+        CloseLastOptionalThread();
+        manager.CloseLastUniqueEvent();
+    }
+
+
+    void End()
+    {
+        for (int i = optionalThreads.size(); i > 0; --i)
+        {
+            StopEventHandler();
+        }
+
+        ExitProcess(1);
+    }
+
+
+    void CloseLastOptionalThread()
+    {
+        CloseHandle(optionalThreads.top().GetThreadHandle());
+        optionalThreads.pop();
+    }
+
+
+private:
+    EventManager manager = EventManager();
+
+    std::stack<SimpleThread> optionalThreads;
+    
+    HANDLE hExtermalEvents[3] = { CreateEvent(NULL, TRUE, FALSE, "Start"),
+                                  CreateEvent(NULL, TRUE, FALSE, "Stop"),
+                                  CreateEvent(NULL, TRUE, FALSE, "Close") };
+
+    HANDLE hConfirmExOpEvent = CreateEvent(NULL, FALSE, FALSE, "Confirm");
+};
+
+
+DWORD WINAPI body(LPVOID lpParam)
+{
+    SimpleThread Thread = *static_cast<SimpleThread*>(lpParam);
+
+
+    WaitForSingleObject(Thread.GetUniqueEventHandle(), INFINITE);
+    
+    Thread.SyncConsoleWrite("start thread " + std::to_string(Thread.GetIndex()));
+
+    SetEvent(Thread.GetConfirmEventHandle());
+
+
+    WaitForSingleObject(Thread.GetUniqueEventHandle(), INFINITE);
+    
+    Thread.SyncConsoleWrite("stop thread " + std::to_string(Thread.GetIndex()));
+
+    SetEvent(Thread.GetConfirmEventHandle());
+
+    
+    return 0;
+}
 
 
 // The one and only application object
@@ -249,6 +272,7 @@ int main()
         else
         {
             MainThread mt = MainThread();
+            mt.start();
         }
     }
     else
