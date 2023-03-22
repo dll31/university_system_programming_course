@@ -30,11 +30,11 @@
         {
             buttonStart = new Button();
             label1 = new Label();
-            numericUpDown1 = new NumericUpDown();
+            numericUpDown_threadCounter = new NumericUpDown();
             label2 = new Label();
             buttonStop = new Button();
             comboBox_threadList = new ComboBox();
-            ((System.ComponentModel.ISupportInitialize)numericUpDown1).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numericUpDown_threadCounter).BeginInit();
             SuspendLayout();
             // 
             // buttonStart
@@ -56,12 +56,12 @@
             label1.TabIndex = 1;
             label1.Text = "Start threads";
             // 
-            // numericUpDown1
+            // numericUpDown_threadCounter
             // 
-            numericUpDown1.Location = new Point(71, 47);
-            numericUpDown1.Name = "numericUpDown1";
-            numericUpDown1.Size = new Size(120, 23);
-            numericUpDown1.TabIndex = 2;
+            numericUpDown_threadCounter.Location = new Point(71, 47);
+            numericUpDown_threadCounter.Name = "numericUpDown_threadCounter";
+            numericUpDown_threadCounter.Size = new Size(120, 23);
+            numericUpDown_threadCounter.TabIndex = 2;
             // 
             // label2
             // 
@@ -98,13 +98,14 @@
             Controls.Add(comboBox_threadList);
             Controls.Add(buttonStop);
             Controls.Add(label2);
-            Controls.Add(numericUpDown1);
+            Controls.Add(numericUpDown_threadCounter);
             Controls.Add(label1);
             Controls.Add(buttonStart);
             Name = "Form1";
             Text = "Form1";
+            FormClosing += Form1_FormClosing;
             Load += Form1_Load;
-            ((System.ComponentModel.ISupportInitialize)numericUpDown1).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numericUpDown_threadCounter).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -113,7 +114,7 @@
 
         private Button buttonStart;
         private Label label1;
-        private NumericUpDown numericUpDown1;
+        private NumericUpDown numericUpDown_threadCounter;
         private Label label2;
         private Button buttonStop;
         private ComboBox comboBox_threadList;

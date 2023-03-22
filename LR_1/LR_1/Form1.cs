@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace LR_1
 {
@@ -12,6 +13,9 @@ namespace LR_1
         private EventWaitHandle CloseDialogueEvent = new(false, EventResetMode.ManualReset, "Close");
 
         private int ThreadCounter = 0;
+
+        private readonly string ComboBoxThreadTemplateString = "Thread ";
+        private readonly string ComboBoxMainThreadTemplateString = "Main thread";
 
         public Form1()
         {
@@ -30,19 +34,63 @@ namespace LR_1
                 comboBox_threadList.Items.Clear();
                 ThreadCounter = 0;
 
-                MainThreadConsole = Process.Start("cpp_console.exe");
+                MainThreadConsole = Process.Start("../../../../cpp_console/cpp_console.exe");
 
-                comboBox_threadList.Items.Add("Main thread");
+                comboBox_threadList.Items.Add(ComboBoxMainThreadTemplateString);
             }
             else
             {
+                for (int i = 0; i < numericUpDown_threadCounter.Value; ++i)
+                {
+                    StartEvent.Set();
+                    ConfirmEvent.WaitOne();
+
+                    ThreadCounter++;
+                    comboBox_threadList.Items.Add(ComboBoxThreadTemplateString + ThreadCounter.ToString());
+                    comboBox_threadList.Refresh();
+                }
+            }
+        }
+
+
+        private void buttonStop_Click(object sender, EventArgs e)
+        {
+            if (MainThreadConsole == null || MainThreadConsole.HasExited)
+                return;
+
+            for (int i = 0; i < numericUpDown_threadCounter.Value; i++)
+            {
+                if (ThreadCounter > 0)
+                {
+                    StopEvent.Set();
+                    ConfirmEvent.WaitOne();
+
+                    comboBox_threadList.Items.Remove(ComboBoxThreadTemplateString + ThreadCounter.ToString());
+                    ThreadCounter--;
+                    comboBox_threadList.Refresh();
+                }
+                else
+                {
+                    CloseDialogueEvent.Set();
+                    comboBox_threadList.Items.Remove(ComboBoxMainThreadTemplateString);
+                    comboBox_threadList.Refresh();
+                    break;
+                }
 
             }
         }
 
-        private void buttonStop_Click(object sender, EventArgs e)
-        {
 
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (MainThreadConsole == null || MainThreadConsole.HasExited)
+                return;
+            else
+            {
+                CloseDialogueEvent.Set();
+                comboBox_threadList.Items.Clear();
+            }
+                
         }
     }
 }
