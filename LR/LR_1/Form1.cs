@@ -79,7 +79,6 @@ namespace LR_1
                     comboBox_threadList.Refresh();
                     break;
                 }
-
             }
         }
 
@@ -93,7 +92,6 @@ namespace LR_1
                 CloseDialogueEvent.Set();
                 comboBox_threadList.Items.Clear();
             }
-                
         }
     }
 }
