@@ -62,3 +62,34 @@ BOOL CMemMappedFileFunctionsApp::InitInstance()
 
 	return TRUE;
 }
+
+
+struct header
+{
+    int addr;
+    int size;
+};
+
+
+extern "C"
+{
+    __declspec(dllexport) void __stdcall mapsend(int addr, const char* str)
+    {
+        AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+        header h = { addr, strlen(str) + 1 };
+        HANDLE hFile = CreateFile("file.dat", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, 0);
+        HANDLE hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, h.size + sizeof(header), NULL);
+        char* buff = (char*)MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, h.size + sizeof(header));
+
+        memcpy(buff, &h, sizeof(header));
+        memcpy(buff + sizeof(header), str, h.size);
+
+
+        UnmapViewOfFile(buff);
+        CloseHandle(hFileMap);
+        CloseHandle(hFile);
+
+    }
+}
+
