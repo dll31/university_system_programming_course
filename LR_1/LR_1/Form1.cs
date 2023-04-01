@@ -17,15 +17,18 @@ namespace LR_1
         private readonly string ComboBoxThreadTemplateString = "Thread ";
         private readonly string ComboBoxMainThreadTemplateString = "Main thread";
 
+
         public Form1()
         {
             InitializeComponent();
         }
 
+
         private void Form1_Load(object sender, EventArgs e)
         {
 
         }
+
 
         private void buttonStart_Click(object sender, EventArgs e)
         {
