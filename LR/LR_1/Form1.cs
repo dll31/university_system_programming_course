@@ -1,8 +1,11 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
+
 
 namespace LR_1
 {
+
     public partial class Form1 : Form
     {
         private Process? MainThreadConsole = null;
@@ -94,4 +97,13 @@ namespace LR_1
             }
         }
     }
+
+
+    public static class MfcDll
+    {
+        [DllImport(@"MemMappedFileFinctions.dll", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern void mapsend(int addr, string str);
+    }
+
+
 }
