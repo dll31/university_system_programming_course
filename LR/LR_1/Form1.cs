@@ -40,6 +40,7 @@ namespace LR_1
                 comboBox_threadList.Items.Clear();
                 ThreadCounter = 0;
 
+                MainThreadConsole = Process.Start("cpp_console.exe");
 
                 comboBox_threadList.Items.Add(ComboBoxMainThreadTemplateString);
             }
