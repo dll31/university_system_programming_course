@@ -8,7 +8,7 @@
 #endif
 
 #include "resource.h"		// main symbols
-
+#include <string>
 
 // CMemMappedFileFunctionsApp
 // See MemMappedFileFunctions.cpp for the implementation of this class
@@ -24,4 +24,18 @@ public:
 	virtual BOOL InitInstance();
 
 	DECLARE_MESSAGE_MAP()
+};
+
+
+struct header
+{
+	int addr;
+	int size;
+};
+
+
+struct receiveHeader
+{
+	header h;
+	std::string str;
 };

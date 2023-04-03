@@ -64,12 +64,10 @@ BOOL CMemMappedFileFunctionsApp::InitInstance()
 }
 
 
-struct header
-{
-    int addr;
-    int size;
-};
 
+static header lastTransfer{};
+
+receiveHeader receiver{};
 
 extern "C"
 {
@@ -77,19 +75,42 @@ extern "C"
     {
         AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
-        header h = { addr, strlen(str) + 1 };
-        HANDLE hFile = CreateFile("file.dat", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, 0);
-        HANDLE hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, h.size + sizeof(header), NULL);
-        char* buff = (char*)MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, h.size + sizeof(header));
+        lastTransfer.addr = addr;
+        lastTransfer.size = strlen(str) + 1;
 
-        memcpy(buff, &h, sizeof(header));
-        memcpy(buff + sizeof(header), str, h.size);
+        HANDLE hFile = CreateFile("file.dat", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
+        HANDLE hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, lastTransfer.size + sizeof(header), NULL);
+        char* buff = (char*)MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, lastTransfer.size + sizeof(header));
+
+        memcpy(buff, &lastTransfer, sizeof(header));
+        memcpy(buff + sizeof(header), str, lastTransfer.size);
 
 
         UnmapViewOfFile(buff);
         CloseHandle(hFileMap);
         CloseHandle(hFile);
 
+    }
+
+
+    __declspec(dllexport) receiveHeader __stdcall mapreceive()
+    {
+        AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+
+        HANDLE hFile = CreateFile("file.dat", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, 0);
+        HANDLE hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, lastTransfer.size + sizeof(header), NULL);
+        char* buff = (char*)MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, lastTransfer.size + sizeof(header));
+        
+
+        memcpy(&receiver.h, buff, sizeof(header));
+        receiver.str = std::string(buff + sizeof(header));
+
+        UnmapViewOfFile(buff);
+        CloseHandle(hFileMap);
+        CloseHandle(hFile);
+
+        return receiver;
     }
 }
 
