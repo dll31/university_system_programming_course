@@ -8,6 +8,8 @@
 #include <stack>
 #include <string>
 
+#include "../MemMappedFileFunctions/MemMappedFileFunctions.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -135,7 +137,28 @@ public:
 
     MainThread() 
     {
+        HINSTANCE hInstDll = LoadLibrary(_T("MemMappedFileFunctions.dll"));
+        if (hInstDll == NULL)
+        {
+            std::cout << "Troubles with loading dll" << std::endl;
+        }
+
+        typedef receiveHeader(__stdcall* MAPRECEIVE)();
+        MAPRECEIVE mapreceive = (MAPRECEIVE)GetProcAddress(hInstDll, "mapreceive");
+        if (mapreceive == NULL)
+        {
+            std::cout << "Broaken dll function loading" << std::endl;
+        }
+
         std::cout << "Main thread" << std::endl;
+
+        receiveHeader h = mapreceive();
+        std::cout << h.h.addr << std::endl;
+        std::cout << h.h.size << std::endl;
+        std::cout << h.str << std::endl;
+
+        FreeLibrary(hInstDll);
+
     }
 
     void start()
