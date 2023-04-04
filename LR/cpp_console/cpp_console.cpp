@@ -16,7 +16,7 @@
 
 
 
-DWORD WINAPI body(LPVOID lpParam);
+UINT body(LPVOID lpParam);
 
 
 class EventManager
@@ -75,9 +75,9 @@ class SimpleThread
 public:
 
     SimpleThread(const EventManager& manager, const int threadIndex)
-        : hMutex(manager.GetMutexHandle()), hConfirmEvent(manager.GetConfirmEventHandle()), hUniqueEvent(manager.GetLastUniqueEvent()), i(threadIndex) 
+        : hCoutMutex(manager.GetMutexHandle()), hConfirmEvent(manager.GetConfirmEventHandle()), hUniqueEvent(manager.GetLastUniqueEvent()), i(threadIndex)
     { 
-        thisThread = CreateThread(NULL, 0, body, (LPVOID*)this, 0, NULL);
+        thisThread = AfxBeginThread(body, (LPVOID*)this);
     }
 
 
@@ -89,7 +89,7 @@ public:
 
     HANDLE GetMutexHandle() const
     {
-        return hMutex;
+        return hCoutMutex;
     }
 
 
@@ -120,7 +120,7 @@ public:
 
 
 private:
-    HANDLE hMutex;
+    HANDLE hCoutMutex;
     HANDLE hConfirmEvent;
     HANDLE hUniqueEvent;
 
@@ -131,33 +131,90 @@ private:
 };
 
 
+class DllLoader
+{
+public:
+    HINSTANCE hInstDll;
+    typedef receiveHeader(__stdcall* MAPRECEIVE)();
+    MAPRECEIVE mapreceive;
+
+    int Init()
+    {
+        if (!dllLoading() && !dllFuncLoader())
+            return 0;
+
+        return 1;
+    }
+
+private:
+    int dllLoading()
+    {
+        hInstDll = LoadLibrary(_T("MemMappedFileFunctions.dll"));
+        if (hInstDll == NULL)
+        {
+            std::cout << "Troubles with loading dll" << std::endl;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    int dllFuncLoader()
+    {
+        mapreceive = (MAPRECEIVE)GetProcAddress(hInstDll, "mapreceive");
+        if (mapreceive == NULL)
+        {
+            std::cout << "Broaken dll function loading" << std::endl;
+            return 2;
+        }
+
+        return 0;
+    }
+};
+
+
+class FileManager
+{
+public:
+    
+    DllLoader fileDll = DllLoader();
+
+    FileManager()
+    { 
+        status = fileDll.Init();
+    }
+
+    ~FileManager()
+    {
+        FreeLibrary(fileDll.hInstDll);
+    }
+
+    int getStatus() { return status; }
+
+
+    
+private:
+    int status;
+};
+
+
+
+
 class MainThread
 {
 public:
 
     MainThread() 
     {
-        HINSTANCE hInstDll = LoadLibrary(_T("MemMappedFileFunctions.dll"));
-        if (hInstDll == NULL)
-        {
-            std::cout << "Troubles with loading dll" << std::endl;
-        }
-
-        typedef receiveHeader(__stdcall* MAPRECEIVE)();
-        MAPRECEIVE mapreceive = (MAPRECEIVE)GetProcAddress(hInstDll, "mapreceive");
-        if (mapreceive == NULL)
-        {
-            std::cout << "Broaken dll function loading" << std::endl;
-        }
+        if (fm.getStatus())
+            std::cout << "Start without file manager " << fm.getStatus() << std::endl;
 
         std::cout << "Main thread" << std::endl;
 
-        receiveHeader h = mapreceive();
+        receiveHeader h = fm.fileDll.mapreceive();
         std::cout << h.h.addr << std::endl;
         std::cout << h.h.size << std::endl;
         std::cout << h.str << std::endl;
-
-        FreeLibrary(hInstDll);
 
     }
 
@@ -240,6 +297,8 @@ public:
 
 
 private:
+    FileManager fm = FileManager();
+
     EventManager manager = EventManager();
 
     std::stack<SimpleThread> optionalThreads;
@@ -253,7 +312,7 @@ private:
 };
 
 
-DWORD WINAPI body(LPVOID lpParam)
+UINT body(LPVOID lpParam)
 {
     SimpleThread Thread = *static_cast<SimpleThread*>(lpParam);
 
