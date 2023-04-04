@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
+using LR;
 
 namespace LR_1
 {
@@ -104,11 +105,6 @@ namespace LR_1
     }
 
 
-    public static class MfcDll
-    {
-        [DllImport(@"MemMappedFileFunctions.dll", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
-        public static extern void mapsend(int addr, string str);
-    }
 
 
 }
