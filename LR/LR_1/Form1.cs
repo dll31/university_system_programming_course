@@ -4,6 +4,7 @@ using System.Windows.Forms;
 
 using LR;
 
+
 namespace LR_1
 {
 
@@ -11,10 +12,11 @@ namespace LR_1
     {
         private Process? MainThreadConsole = null;
 
-        private EventWaitHandle StopEvent = new(false, EventResetMode.ManualReset, "Stop");
-        private EventWaitHandle StartEvent = new(false, EventResetMode.ManualReset, "Start");
+        private EventWaitHandle StopEvent = new(false, EventResetMode.AutoReset, "Stop");
+        private EventWaitHandle StartEvent = new(false, EventResetMode.AutoReset, "Start");
         private EventWaitHandle ConfirmEvent = new(false, EventResetMode.AutoReset, "Confirm");
-        private EventWaitHandle CloseDialogueEvent = new(false, EventResetMode.ManualReset, "Close");
+        private EventWaitHandle CloseDialogueEvent = new(false, EventResetMode.AutoReset, "Close");
+        private EventWaitHandle FileDialogueEvent = new(false, EventResetMode.AutoReset, "See file");
 
         private int ThreadCounter = 0;
 
@@ -45,6 +47,7 @@ namespace LR_1
                 MfcDll.mapsend(2, hw);
 
                 MainThreadConsole = Process.Start("cpp_console.exe");
+
 
                 comboBox_threadList.Items.Add("All threads");
                 comboBox_threadList.Items.Add(ComboBoxMainThreadTemplateString);

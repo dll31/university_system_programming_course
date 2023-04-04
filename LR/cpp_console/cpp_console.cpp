@@ -165,23 +165,27 @@ public:
     {
         while (true)
         {
-            DWORD dwWaitResult = WaitForMultipleObjects(3, hExtermalEvents, FALSE, INFINITE);
+            DWORD dwWaitResult = WaitForMultipleObjects(4, hExtermalEvents, FALSE, INFINITE);
 
             switch (dwWaitResult)
             {
             case WAIT_OBJECT_0:
                 StartEventHandler();
-                ResetEvent(hExtermalEvents[0]);
+                //ResetEvent(hExtermalEvents[0]);
                 break;
 
             case WAIT_OBJECT_0 + 1:
                 StopEventHandler();
-                ResetEvent(hExtermalEvents[1]);
+                //ResetEvent(hExtermalEvents[1]);
                 break;
 
             case WAIT_OBJECT_0 + 2:
-                ResetEvent(hExtermalEvents[2]);
+                //ResetEvent(hExtermalEvents[2]);
                 End();
+                break;
+            
+            case WAIT_OBJECT_0 + 3:
+                std::cout << "i catch it" << std::endl;
                 break;
 
             default:
@@ -240,9 +244,10 @@ private:
 
     std::stack<SimpleThread> optionalThreads;
     
-    HANDLE hExtermalEvents[3] = { CreateEvent(NULL, TRUE, FALSE, "Start"),
-                                  CreateEvent(NULL, TRUE, FALSE, "Stop"),
-                                  CreateEvent(NULL, TRUE, FALSE, "Close") };
+    HANDLE hExtermalEvents[4] = { CreateEvent(NULL, TRUE, TRUE, "Start"),
+                                  CreateEvent(NULL, TRUE, TRUE, "Stop"),
+                                  CreateEvent(NULL, TRUE, TRUE, "Close"),
+                                  CreateEvent(NULL, TRUE, TRUE, "See file") };
 
     HANDLE hConfirmExOpEvent = CreateEvent(NULL, FALSE, FALSE, "Confirm");
 };
