@@ -46,9 +46,10 @@ namespace LR_1
 
                 MainThreadConsole = Process.Start("cpp_console.exe");
 
+                comboBox_threadList.Items.Add("All threads");
                 comboBox_threadList.Items.Add(ComboBoxMainThreadTemplateString);
 
-                
+
             }
             else
             {
@@ -102,9 +103,16 @@ namespace LR_1
                 comboBox_threadList.Items.Clear();
             }
         }
+
+        private void buttonSend_Click(object sender, EventArgs e)
+        {
+            int value = comboBox_threadList.SelectedIndex - 1;
+
+            string str = textBoxSend.Text;
+
+            MfcDll.mapsend(value, str);
+            FileDialogueEvent.Set();
+        }
     }
-
-
-
 
 }

@@ -34,6 +34,8 @@
             label2 = new Label();
             buttonStop = new Button();
             comboBox_threadList = new ComboBox();
+            buttonSend = new Button();
+            textBoxSend = new TextBox();
             ((System.ComponentModel.ISupportInitialize)numericUpDown_threadCounter).BeginInit();
             SuspendLayout();
             // 
@@ -74,7 +76,7 @@
             // 
             // buttonStop
             // 
-            buttonStop.Location = new Point(328, 86);
+            buttonStop.Location = new Point(71, 130);
             buttonStop.Name = "buttonStop";
             buttonStop.Size = new Size(75, 23);
             buttonStop.TabIndex = 4;
@@ -87,14 +89,33 @@
             comboBox_threadList.FormattingEnabled = true;
             comboBox_threadList.Location = new Point(328, 47);
             comboBox_threadList.Name = "comboBox_threadList";
-            comboBox_threadList.Size = new Size(121, 23);
+            comboBox_threadList.Size = new Size(183, 23);
             comboBox_threadList.TabIndex = 5;
+            // 
+            // buttonSend
+            // 
+            buttonSend.Location = new Point(328, 130);
+            buttonSend.Name = "buttonSend";
+            buttonSend.Size = new Size(75, 23);
+            buttonSend.TabIndex = 6;
+            buttonSend.Text = "Send";
+            buttonSend.UseVisualStyleBackColor = true;
+            buttonSend.Click += buttonSend_Click;
+            // 
+            // textBoxSend
+            // 
+            textBoxSend.Location = new Point(328, 86);
+            textBoxSend.Name = "textBoxSend";
+            textBoxSend.Size = new Size(183, 23);
+            textBoxSend.TabIndex = 7;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(523, 149);
+            ClientSize = new Size(572, 188);
+            Controls.Add(textBoxSend);
+            Controls.Add(buttonSend);
             Controls.Add(comboBox_threadList);
             Controls.Add(buttonStop);
             Controls.Add(label2);
@@ -118,5 +139,7 @@
         private Label label2;
         private Button buttonStop;
         private ComboBox comboBox_threadList;
+        private Button buttonSend;
+        private TextBox textBoxSend;
     }
 }
