@@ -7,6 +7,9 @@
 
 #include <stack>
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <vector>
 
 #include "../MemMappedFileFunctions/MemMappedFileFunctions.h"
 
@@ -49,23 +52,32 @@ public:
 
     HANDLE GetLastFileUniqueEvent() const
     {
-        return threadsUniqueFileEvents.top();
+        return threadsUniqueFileEvents.back();
     }
 
 
     void AddUniqueEvents(const HANDLE& commandEvent, const HANDLE& fileEvent)
     {
         threadsUniqueCommandEvents.push(commandEvent);
-        threadsUniqueFileEvents.push(fileEvent);
+        threadsUniqueFileEvents.push_back(fileEvent);
     }
 
 
     void CloseLastUniqueEvent()
     {
         CloseHandle(threadsUniqueCommandEvents.top());
-        CloseHandle(threadsUniqueFileEvents.top());
+        CloseHandle(threadsUniqueFileEvents.back());
         threadsUniqueCommandEvents.pop();
-        threadsUniqueFileEvents.pop();
+        threadsUniqueFileEvents.pop_back();
+    }
+
+    
+    HANDLE SearchFileEvent(int addr)
+    {
+        if (addr - 1 > threadsUniqueFileEvents.size())
+            return NULL;
+
+        return threadsUniqueFileEvents[addr - 1];
     }
 
 
@@ -74,7 +86,7 @@ private:
     HANDLE threadConfirmSmthEvent;
 
     std::stack<HANDLE> threadsUniqueCommandEvents;
-    std::stack<HANDLE> threadsUniqueFileEvents;
+    std::vector<HANDLE> threadsUniqueFileEvents;
 
 };
 
@@ -285,11 +297,43 @@ public:
                 break;
             
             case WAIT_OBJECT_0 + 3:
-                std::cout << "i catch it" << std::endl;
                 h = fm.fileDll.mapreceive();
-                std::cout << h.h.addr << std::endl;
-                std::cout << h.h.size << std::endl;
-                std::cout << h.str << std::endl;
+
+                switch (h.h.addr)
+                {
+                case -1:
+                    std::cout << "All threads " << std::endl << '\t' << "message: " << h.str << std::endl;
+
+                    for (int i = 0; i < optionalThreads.size(); ++i)
+                    {
+                        SetEvent(manager.SearchFileEvent(i + 1));
+                    }
+
+
+                    break;
+
+                case 0:
+                    std::cout << "Main thread " << std::endl << '\t' << "message: " << h.str << std::endl;
+
+                    break;
+
+                default:
+                    if (manager.SearchFileEvent(h.h.addr) == NULL)
+                    {
+                        std::cout << "No thread with index " << h.h.addr << std::endl;
+                        break;
+                    }
+                    else
+                    {
+                        std::cout << "thread: " << h.h.addr << std::endl << '\t' << "message: " << h.str << std::endl;
+
+                        SetEvent(manager.SearchFileEvent(h.h.addr));
+                    }
+
+                    break;
+
+                }
+
                 break;
 
             default:
@@ -364,6 +408,8 @@ UINT body(LPVOID lpParam)
 {
     SimpleThread Thread = *static_cast<SimpleThread*>(lpParam);
 
+    std::ofstream f(std::to_string(Thread.GetIndex()).append(".txt"));
+
 
     WaitForSingleObject(Thread.GetCommandUniqueEventHandle(), INFINITE);
     
@@ -372,12 +418,32 @@ UINT body(LPVOID lpParam)
     SetEvent(Thread.GetConfirmEventHandle());
 
 
-    WaitForSingleObject(Thread.GetCommandUniqueEventHandle(), INFINITE);
+    HANDLE evs[2] = { Thread.GetCommandUniqueEventHandle(), Thread.GetFileUniqueEventHandle() };
+    receiveHeader h;
 
-    Thread.SyncConsoleWrite("stop thread " + std::to_string(Thread.GetIndex()));
 
-    SetEvent(Thread.GetConfirmEventHandle());
+    while (true)
+    {
+        DWORD dwWaitResult = WaitForMultipleObjects(2, evs, FALSE, INFINITE);
 
+        switch (dwWaitResult)
+        {
+        case WAIT_OBJECT_0:
+
+            Thread.SyncConsoleWrite("stop thread " + std::to_string(Thread.GetIndex()));
+            f.close();
+
+            SetEvent(Thread.GetConfirmEventHandle());
+
+            return 0;
+
+        case WAIT_OBJECT_0 + 1:
+            Thread.SyncSharedFileRead(h);
+
+            f << h.str << std::endl;
+            break;
+        }
+    }
     
     return 0;
 }
