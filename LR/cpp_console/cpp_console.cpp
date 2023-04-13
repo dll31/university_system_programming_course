@@ -309,7 +309,6 @@ public:
                         SetEvent(manager.SearchFileEvent(i + 1));
                     }
 
-
                     break;
 
                 case 0:
