@@ -15,7 +15,6 @@
 #endif
 
 
-
 UINT body(LPVOID lpParam);
 
 
@@ -42,22 +41,31 @@ public:
     }
 
 
-    HANDLE GetLastUniqueEvent() const
+    HANDLE GetLastCommandUniqueEvent() const
     {
-        return threadsUniqueEvents.top();
+        return threadsUniqueCommandEvents.top();
     }
 
 
-    void AddUniqueEvent(const HANDLE& event)
+    HANDLE GetLastFileUniqueEvent() const
     {
-        threadsUniqueEvents.push(event);
+        return threadsUniqueFileEvents.top();
+    }
+
+
+    void AddUniqueEvents(const HANDLE& commandEvent, const HANDLE& fileEvent)
+    {
+        threadsUniqueCommandEvents.push(commandEvent);
+        threadsUniqueFileEvents.push(fileEvent);
     }
 
 
     void CloseLastUniqueEvent()
     {
-        CloseHandle(threadsUniqueEvents.top());
-        threadsUniqueEvents.pop();
+        CloseHandle(threadsUniqueCommandEvents.top());
+        CloseHandle(threadsUniqueFileEvents.top());
+        threadsUniqueCommandEvents.pop();
+        threadsUniqueFileEvents.pop();
     }
 
 
@@ -65,68 +73,8 @@ private:
     HANDLE mutex;
     HANDLE threadConfirmSmthEvent;
 
-    std::stack<HANDLE> threadsUniqueEvents;
-
-};
-
-
-class SimpleThread
-{
-public:
-
-    SimpleThread(const EventManager& manager, const int threadIndex)
-        : hCoutMutex(manager.GetMutexHandle()), hConfirmEvent(manager.GetConfirmEventHandle()), hUniqueEvent(manager.GetLastUniqueEvent()), i(threadIndex)
-    { 
-        thisThread = AfxBeginThread(body, (LPVOID*)this);
-    }
-
-
-    HANDLE GetThreadHandle()
-    {
-        return thisThread;
-    }
-
-
-    HANDLE GetMutexHandle() const
-    {
-        return hCoutMutex;
-    }
-
-
-    HANDLE GetConfirmEventHandle() const
-    {
-        return hConfirmEvent;
-    }
-
-
-    HANDLE GetUniqueEventHandle() const
-    {
-        return hUniqueEvent;
-    }
-
-
-    int GetIndex() const
-    {
-        return i;
-    }
-
-
-    void SyncConsoleWrite(std::string text)
-    {
-        WaitForSingleObject(GetMutexHandle(), INFINITE);
-        std::cout << text << std::endl;
-        ReleaseMutex(GetMutexHandle());
-    }
-
-
-private:
-    HANDLE hCoutMutex;
-    HANDLE hConfirmEvent;
-    HANDLE hUniqueEvent;
-
-    const int i;
-
-    HANDLE thisThread;
+    std::stack<HANDLE> threadsUniqueCommandEvents;
+    std::stack<HANDLE> threadsUniqueFileEvents;
 
 };
 
@@ -176,13 +124,16 @@ private:
 class FileManager
 {
 public:
-    
+
     DllLoader fileDll = DllLoader();
 
+
     FileManager()
-    { 
+    {
         status = fileDll.Init();
+        hSharedFileMutex = CreateMutex(NULL, FALSE, NULL);
     }
+
 
     ~FileManager()
     {
@@ -192,11 +143,110 @@ public:
     int getStatus() { return status; }
 
 
-    
+    HANDLE getMutexHandle() const { return hSharedFileMutex; }
+
+
 private:
     int status;
+    HANDLE hSharedFileMutex;
 };
 
+
+class SimpleThread
+{
+public:
+
+    SimpleThread(const EventManager& eManager, const FileManager& fManager, const int threadIndex)
+        : hConfirmEvent(eManager.GetConfirmEventHandle()), fileDll(fManager.fileDll), muts(eManager.GetMutexHandle(), fManager.getMutexHandle()), 
+        hUniqueCommandEvent(eManager.GetLastCommandUniqueEvent()), hUniqueFileEvent(eManager.GetLastFileUniqueEvent()), i(threadIndex)
+    { 
+        thisThread = AfxBeginThread(body, (LPVOID*)this);
+    }
+
+
+    HANDLE GetThreadHandle() { return thisThread; }
+
+
+    HANDLE GetCoutMutexHandle() const
+    {
+        return muts.cout;
+    }
+
+
+    HANDLE GetFileMutexHandle() const
+    {
+        return muts.file;
+    }
+
+
+    HANDLE GetConfirmEventHandle() const
+    {
+        return hConfirmEvent;
+    }
+
+
+    HANDLE GetCommandUniqueEventHandle() const
+    {
+        return hUniqueCommandEvent;
+    }
+
+
+    HANDLE GetFileUniqueEventHandle() const
+    {
+        return hUniqueFileEvent;
+    }
+
+
+    int GetIndex() const
+    {
+        return i;
+    }
+
+
+    void SyncConsoleWrite(std::string text)
+    {
+        WaitForSingleObject(GetCoutMutexHandle(), INFINITE);
+        std::cout << text << std::endl;
+        ReleaseMutex(GetCoutMutexHandle());
+    }
+
+
+    void SyncSharedFileRead(receiveHeader& h)
+    {
+        WaitForSingleObject(GetFileMutexHandle(), INFINITE);
+        h = fileDll.mapreceive();
+        ReleaseMutex(GetFileMutexHandle());
+    }
+
+
+private:
+    struct hThreadMutexes
+    {
+        HANDLE cout;
+        HANDLE file;
+
+        hThreadMutexes(const HANDLE& hCoutMutex, const HANDLE& hFileMutex) : cout(hCoutMutex), file(hFileMutex) {}
+
+        ~hThreadMutexes()
+        {
+            CloseHandle(cout);
+            CloseHandle(file);
+        }
+    };
+    
+    hThreadMutexes muts;
+
+    HANDLE hUniqueCommandEvent;
+    HANDLE hUniqueFileEvent;
+
+    HANDLE hConfirmEvent;
+
+    const int i;
+
+    HANDLE thisThread;
+
+    const DllLoader fileDll;
+};
 
 
 
@@ -210,16 +260,12 @@ public:
             std::cout << "Start without file manager " << fm.getStatus() << std::endl;
 
         std::cout << "Main thread" << std::endl;
-
-        receiveHeader h = fm.fileDll.mapreceive();
-        std::cout << h.h.addr << std::endl;
-        std::cout << h.h.size << std::endl;
-        std::cout << h.str << std::endl;
-
     }
 
     void start()
     {
+        receiveHeader h;
+
         while (true)
         {
             DWORD dwWaitResult = WaitForMultipleObjects(4, hExtermalEvents, FALSE, INFINITE);
@@ -228,21 +274,22 @@ public:
             {
             case WAIT_OBJECT_0:
                 StartEventHandler();
-                //ResetEvent(hExtermalEvents[0]);
                 break;
 
             case WAIT_OBJECT_0 + 1:
                 StopEventHandler();
-                //ResetEvent(hExtermalEvents[1]);
                 break;
 
             case WAIT_OBJECT_0 + 2:
-                //ResetEvent(hExtermalEvents[2]);
                 End();
                 break;
             
             case WAIT_OBJECT_0 + 3:
                 std::cout << "i catch it" << std::endl;
+                h = fm.fileDll.mapreceive();
+                std::cout << h.h.addr << std::endl;
+                std::cout << h.h.size << std::endl;
+                std::cout << h.str << std::endl;
                 break;
 
             default:
@@ -257,12 +304,13 @@ public:
     void StartEventHandler()
     {
         int ind = optionalThreads.size() + 1;
-        HANDLE ev = CreateEvent(NULL, FALSE, FALSE, std::to_string(ind).c_str());
-        manager.AddUniqueEvent(ev);
+        HANDLE cEv = CreateEvent(NULL, FALSE, FALSE, std::to_string(ind).c_str());
+        HANDLE fEv = CreateEvent(NULL, FALSE, FALSE, std::to_string(ind).append("f").c_str());
+        manager.AddUniqueEvents(cEv, fEv);
 
-        optionalThreads.push(SimpleThread(manager, ind));
+        optionalThreads.push(SimpleThread(manager, fm, ind));
 
-        SetEvent(ev);
+        SetEvent(cEv);
 
         WaitForSingleObject(manager.GetConfirmEventHandle(), INFINITE);
     }
@@ -270,7 +318,7 @@ public:
 
     void StopEventHandler()
     {
-        SetEvent(manager.GetLastUniqueEvent());
+        SetEvent(manager.GetLastCommandUniqueEvent());
         WaitForSingleObject(manager.GetConfirmEventHandle(), INFINITE);
 
         CloseLastOptionalThread();
@@ -317,15 +365,15 @@ UINT body(LPVOID lpParam)
     SimpleThread Thread = *static_cast<SimpleThread*>(lpParam);
 
 
-    WaitForSingleObject(Thread.GetUniqueEventHandle(), INFINITE);
+    WaitForSingleObject(Thread.GetCommandUniqueEventHandle(), INFINITE);
     
     Thread.SyncConsoleWrite("start thread " + std::to_string(Thread.GetIndex()));
 
     SetEvent(Thread.GetConfirmEventHandle());
 
 
-    WaitForSingleObject(Thread.GetUniqueEventHandle(), INFINITE);
-    
+    WaitForSingleObject(Thread.GetCommandUniqueEventHandle(), INFINITE);
+
     Thread.SyncConsoleWrite("stop thread " + std::to_string(Thread.GetIndex()));
 
     SetEvent(Thread.GetConfirmEventHandle());
